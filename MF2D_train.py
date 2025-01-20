@@ -74,9 +74,7 @@ def fuse_object_embeddings(
     fuse_fn=torch.add,
 ):
     object_embeds = object_embeds.to(inputs_embeds.dtype)
-    #print("object_embeds",object_embeds.shape)
     batch_size, max_num_objects = object_embeds.shape[:2]
-    #print(max_num_objects)
     seq_length = inputs_embeds.shape[1]
     flat_object_embeds = object_embeds.view(
         -1, object_embeds.shape[-2], object_embeds.shape[-1]
@@ -85,10 +83,7 @@ def fuse_object_embeddings(
         torch.arange(max_num_objects, device=flat_object_embeds.device)[None, :]
         < num_objects[:, None]
     )
-    #flat_embeds=flat_object_embeds.flatten()
-    #print(flat_object_embeds.shape)
-    #print(valid_object_mask.shape)
-    #valid_object_mask = torch.cat((valid_object_mask,valid_object_mask),dim=0)
+
     valid_object_embeds = flat_object_embeds[valid_object_mask]
 
     inputs_embeds = inputs_embeds.view(-1, inputs_embeds.shape[-1])
@@ -209,7 +204,7 @@ unet = UNet2DConditionModel.from_pretrained(pretrained_model_name_or_path, subfo
 unet.requires_grad_(False)
 unet.to(torch.float16)
 localization_layers = 5
-cross_att = False
+cross_att = True
 if cross_att:
     cross_attention_scores = {}
     unet = unet_store_cross_attention_scores(
@@ -228,22 +223,13 @@ img2text.load_state_dict(torch.load('checkpoints/mapping.pt',map_location='cpu')
 img2text=img2text.to(device)
 img2text.requires_grad_(True)
 img2text.train()
-#img2text.eval()
 
 msid = msid_base_patch8_112(ext_depthes=[2,5,8,11])
 msid.load_state_dict(torch.load('checkpoints/msid.pt'))
 msid=msid.to(device)
 msid.requires_grad_(False)
-#msid.eval()
-#unet_params = list([p for p in unet.parameters() if p.requires_grad])
 
-# optimizer = torch.optim.AdamW(unet.parameters(), 1e-5)
 optimizer = torch.optim.AdamW(img2text.parameters(), 1e-5)
-# optimizer = optimizer_cls(
-#     [
-#         {"params": unet_params, "lr": 1e-20},
-#     ],
-# )
 
 lr_scheduler = get_scheduler(
         "constant",
@@ -269,8 +255,6 @@ train_dataloader = get_data_loader(train_dataset, 16)
 # train
 loss_record = []
 for epoch in range(50):
-    #unet.train()
-
     train_loss = 0.0
     total = len(train_dataloader)
     denoise_loss = 0.0
@@ -283,27 +267,19 @@ for epoch in range(50):
         input_ids = batch["input_ids"]
         image_token_mask = batch["image_token_mask"]
 
-        # with torch.no_grad():
         idvec1 = msid.extract_mlfeat(object_pixel_values[:,0,:,:,:].to(device).float(),[2,5,8,11])
         tokenized_identity_first1, tokenized_identity_last1 = img2text(idvec1,exp=None)
 
-        #with torch.no_grad():
         idvec2 = msid.extract_mlfeat(object_pixel_values[:,1,:,:,:].to(device).float(),[2,5,8,11])
         tokenized_identity_first2, tokenized_identity_last2 = img2text(idvec2,exp=None)
         
-            #print(tokenized_identity_first1.shape)
         tokenized_identity_first = torch.cat((tokenized_identity_first1.unsqueeze(1), tokenized_identity_first2.unsqueeze(1)),dim=1)
-            #print(tokenized_identity_first.shape)
-            #print(tokenized_identity_first)
         encoder_hidden_states = mod.forward_texttransformer(pipe.text_encoder.text_model, input_ids=input_ids.to(device))[0]
         
         encoder_hidden_states = fuse_object_embeddings(
             encoder_hidden_states.to(device), image_token_mask.to(device), tokenized_identity_first, num_objects.to(device)
         )
-            #print(encoder_hidden_states.shape)
-            #print(encoder_hidden_states)
-            #vae_dtype = pipe.vae.parameters().__next__().dtype
-        #with torch.no_grad():
+
         vae_input = pixel_values.to(torch.float16)
         #print("vae", vae_input.shape)
 
@@ -325,16 +301,7 @@ for epoch in range(50):
         # (this is the forward diffusion process)
         noisy_latents = pipe.scheduler.add_noise(latents, noise, timesteps)
 
-        #print("noisy", noisy_latents.shape)
-        #print(noisy_latents)
-        #print("time", timesteps.shape)
-        #print(timesteps)
-        #print("encoder", encoder_hidden_states.shape)
-        #print(encoder_hidden_states)
-        #pred = unet(noisy_latents.to(dtype=torch.float16), timesteps, encoder_hidden_states.to(dtype=torch.float16)).sample
-        #with torch.no_grad():
         pred = unet(noisy_latents.to(dtype=torch.float16), timesteps, encoder_hidden_states.to(dtype=torch.float16))["sample"]
-        #print("pred", pred.shape)
 
         # Get the target for loss depending on the prediction type
         if pipe.scheduler.config.prediction_type == "epsilon":
@@ -378,26 +345,16 @@ for epoch in range(50):
             _clear_cross_attention_scores(cross_attention_scores)
         else:
             loss = denoise_loss
-        #print("loss", loss.shape)
-        #print(loss)
-        #unet_params = list([p for p in unet.parameters() if p.requires_grad])
-        #print(unet_params)
 
         # Backpropagate
         loss.backward()
-        # for name, parms in unet.named_parameters():	
-        #     print('-->name:', name, '-->grad_requirs:',parms.requires_grad, \
-        #      ' -->grad_value:',parms.grad[0])
-        #torch.nn.utils.clip_grad_norm_(unet.parameters(), max_norm=0.25)
         optimizer.step()
         #lr_scheduler.step()
         optimizer.zero_grad()
         train_loss += loss.item()
-        #if step>2:
-        #    break
+
     loss_record.append(train_loss/total)
     print(f"epoch:{epoch}  loss:{train_loss/total}") 
-    #break
     PATH = f'./fmap/fmap_epoch{epoch}.pth'
     torch.save(img2text.state_dict(), PATH)
     with open("./training_loss0.txt", 'a') as train_los:
