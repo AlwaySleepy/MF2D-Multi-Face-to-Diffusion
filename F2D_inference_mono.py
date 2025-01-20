@@ -25,6 +25,7 @@ def main(args):
 	pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.config)
 
 	#build f2d pipeline
+	#__get__：对于实例pipe.text_encoder，类型是 CLIPTextModel
 	pipe.text_encoder.text_model.forward = mod.forward_texttransformer.__get__(pipe.text_encoder.text_model, CLIPTextTransformer)
 	pipe.text_encoder.forward = mod.forward_textmodel.__get__(pipe.text_encoder, CLIPTextModel)
 
@@ -96,11 +97,11 @@ def main(args):
 
 if __name__=='__main__':
 	parser=argparse.ArgumentParser()
-	parser.add_argument('-p',dest='prompt',required=True)
-	parser.add_argument('-i',dest='input',required=True,help='path for the input facial image')
-	parser.add_argument('--w_map',required=True,help='weight path for the mapping network')
-	parser.add_argument('--w_msid',required=True,help='weight path for the msid encoder')
-	parser.add_argument('-o',dest='output',required=True)
+	parser.add_argument('-p',dest='prompt',default="f l is reading a book",required=True)
+	parser.add_argument('-i',dest='input',default="data/input/0.jpg", required=True,help='path for the input facial image')
+	parser.add_argument('--w_map',default='checkpoints/mapping.pt',required=True,help='weight path for the mapping network')
+	parser.add_argument('--w_msid',default='checkpoints/msid.pt',required=True,help='weight path for the msid encoder')
+	parser.add_argument('-o',dest='output',default="data/output_mono",required=True)
 	parser.add_argument('-n',dest='n_samples',default=8,type=int)
 	args=parser.parse_args()
 	main(args)
