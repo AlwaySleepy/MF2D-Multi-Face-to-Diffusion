@@ -101,7 +101,7 @@ if __name__=='__main__':
 	parser.add_argument('-i',dest='input',default="data/input/0.jpg", required=True,help='path for the input facial image')
 	parser.add_argument('--w_map',default='checkpoints/mapping.pt',required=True,help='weight path for the mapping network')
 	parser.add_argument('--w_msid',default='checkpoints/msid.pt',required=True,help='weight path for the msid encoder')
-	parser.add_argument('-o',dest='output',default="data/output_mono",required=True)
+	parser.add_argument('-o',dest='output',default="data/f2d_mono",required=True)
 	parser.add_argument('-n',dest='n_samples',default=8,type=int)
 	args=parser.parse_args()
 	main(args)
