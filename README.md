@@ -1,4 +1,4 @@
-# 本项目是基于Face2Diffusion论文完成的一个复现&改进项目
+# 这是基于Face2Diffusion论文完成的复现&改进项目
 
 ## 项目概览
 ```text
