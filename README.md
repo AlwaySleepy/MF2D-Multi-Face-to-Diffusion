@@ -1,73 +1,94 @@
-# Face2Diffusion (CVPR2024)
-<a href='https://arxiv.org/abs/2403.05094'><img src='https://img.shields.io/badge/ArXiv-PDF-red'></a> &nbsp; 
-<a href='https://mapooon.github.io/Face2DiffusionPage'><img src='https://img.shields.io/badge/Project-Page-Green'></a> &nbsp; 
-[![**face2diffusion_demo**](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mapooon/Face2Diffusion/blob/master/Face2Diffusion_Demo.ipynb) 
+# 本项目是基于Face2Diffusion论文完成的一个复现&改进项目
 
-![Overview](fig/teaser.png)
-The official PyTorch implementation for the following paper:
-> [**Face2Diffusion for Fast and Editable Face Personalization**](https://arxiv.org/abs/2403.05094),  
-> Kaede Shiohara, Toshihiko Yamasaki,   
-> *CVPR 2024*
-
-# Changelog
-2024/03/28 🔥 Released a demo code on Google Colab.  
-2024/03/15 🔥 Released the full inference pipeline.  
-2024/03/11 🔥  Released this repository and demo code.  
-
-# Demo on Google Colab
-[![**face2diffusion_demo**](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mapooon/Face2Diffusion/blob/master/Face2Diffusion_Demo.ipynb) 
-
-# Recomended Development Environment
-* GPU: NVIDIA A100
-* CUDA: 12.2
-* Docker: 535.129.03
-
-
-
-# Setup
-## 1. Build Docker Image
-Build a docker image
-```bash
-docker build -t face2diffusion dockerfiles/
-```
-Execute docker using the following command (Please replace `/path/to/this/repository` with a proper one)
-```bash
-docker run -it --gpus all --shm-size 512G \
--v /path/to/this/repository:/workspace \
-face2diffusion bash
-```
-Install some packages
-```bash
-bash install.sh
+## 项目概览
+```text
+.
+├── &
+├── arcface_torch               # msid training
+│   ├── backbones
+│   │   ├── msid.py
+│   │   └── ...
+│   ├── configs
+│   │   ├── msid_config.py
+│   │   └── ...
+│   ├── train_v2.py
+│   └── ...
+├── checkpoints                 # msid ckpt and fmap ckpt
+│   ├── mapping.pt
+│   ├── msid.pt
+│   └── ...
+├── dataori.py                  # data preprocess for MF2D
+├── data.py                     # data preprocess for cgdr
+├── F2D_inference_mono.py       # F2D infer mono subject
+├── F2D_inference_multi.py      # F2D infer multi subject
+├── f2d_train.py                # F2D training with cgdr
+├── fmap                        # MF2D fmap ckpt
+├── MF2D_inference.py           # MF2D infer multi subject
+├── MF2D_train.py               # MF2D training
+├── model.py                    
+├── transform.py
+└── ...
 ```
 
-## 2. Download checkpoints
-We provide checkpoints for [mapping network](https://drive.google.com/file/d/1Lf_mwMgme_HVYJCkViGr4TfGOfKw9PhE/view?usp=sharing) and [MSID encoder](https://drive.google.com/file/d/1DjUf-ib612SDDt86TRlsDkHqXTeYx030/view?usp=sharing). Download and place them to ```checkpoints/```.
+## 论文复现
 
-# Demo
-Generate images for an facial image and text prompt:
-```bash
-python3 inference_f2d.py \
---w_map checkpoints/mapping.pt \
---w_msid checkpoints/msid.pt \
--i input/0.jpg \ # input identity
--p 'f l eating bread in front of the Eiffel Tower' \ # input prompt
--o output.png \ # output file name
--n 8 \ # num of images to generate
-```
-Note: The identifier S* should be represented as "f l".
+* __msid复现:__
+    * 环境搭建: 按照[face2diffusion](https://github.com/mapooon/Face2Diffusion)主页的环境进行搭建, 在docker内运行项目.
+	* 具体实现: 下载[arcface_torch](https://github.com/deepinsight/insightface/tree/master/recognition/arcface_torch)内提供的[MS1MV2](https://github.com/deepinsight/insightface/tree/master/recognition/_datasets_#ms1m-arcface-85k-ids58m-images-57)数据集MS1M-ArcFace, 
+    放到arcface_torch/data路径下, 然后运行
+        ```text
+        python train_v2.py configs/msid_config
+        ```
+        即可实现单gpu训练msid encoder.
 
-# Acknowledgements
-We borrow some code from [InsightFace](https://github.com/deepinsight/insightface), [ICT](https://github.com/LightDXY/ICT_DeepFake), and [Pix2Word](https://github.com/google-research/composed_image_retrieval).
+* __cgdr复现:__
+	* 环境搭建: 由于face2diffusion没有给出官方的训练代码, 所以我们主要参考了类似的项目[fastcomposer](https://github.com/mit-han-lab/fastcomposer)自己写了一份训练代码. 环境的搭建参考fastcomposer主页.
+	* 具体实现: 
+    
+        下载ffhq数据集放入data路径下
+  
+        ```bash 
+        cd data
+        wget https://huggingface.co/datasets/mit-han-lab/ffhq-fastcomposer/resolve/main/ffhq_fastcomposer.tgz
+        tar -xvzf ffhq_fastcomposer.tgz
+        ```
+        修改data.py文件内collate_fn内的cgdr参数为True, 然后运行
+        ```text
+        python f2d_train.py
+        ```
 
 
-# Citation
-If you find our work useful for your research, please consider citing our paper:
-```bibtex
-@inproceedings{shiohara2024face2diffusion,
-  title={Face2Diffusion for Fast and Editable Face Personalization},
-  author={Shiohara, Kaede and Yamasaki, Toshihiko},
-  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
-  year={2024}
-}
-```
+
+
+
+## 我们的改进: Multi Face to Diffusion
+Face2Diffusion本身是一个用比较灵巧的trick来提升个性化人脸生成效果的项目, 但是其局限性较强——只针对单一主体的生成. 我们将其架构简单地改成了双主体的架构, 利用现有的ckpt尝试直接生成多主体图片, 发现其效果非常不理想. 
+
+
+我们在调查资料的时候发现了另一个与多主体有关的库: fastcomposer, 因此我们觉得可以尝试将二者的思想结合, 将face2diffusion项目的思想推广到多主体生成中, 让face2diffusion能够具备不错多主体生成能力. 
+
+
+### 改进方法: 
+针对多主体数据, 训练相应的Fmap. 使用FastComposer数据集, 将训练图像首先通过物体分割模型, 得到多个主体的图像, 然后使用F2D的MSID对多个图像进行编码, 将图像特征通过Fmap转化成文本空间的向量, 插入文本描述的对应位置中得到增强的文本向量, 然后送入unet进行去噪流程, 冻结MSID与unet参数. 
+相关ckpt存储在fmap/路径下.
+
+* __训练方法:__
+    * 下载ffhq数据集, 参考cgdr复现
+    * 下载[face2diffusion](https://github.com/mapooon/Face2Diffusion)提供的msid以及fmap ckpt, 放入checkpoints路径下
+    * 运行以下命令: 
+        ```text
+        python MF2D_train.py
+        ```
+* __inference对比__
+    * 准备两张图放入data/input/路径下(已提供一些图, 可以自行替换)
+    * 如果想运行MF2D, 运行以下命令
+        ```text
+        python MF2D_inference.py
+        ```
+    * 如果想运行F2D, 运行以下命令
+        ```text
+        python F2D_inference_mono.py    # for one subject
+        python F2D_inference_multi.py   # for multi subject
+        ```
+    * 可在上述文件中自行修改prompt, 实现不同输出.
+
