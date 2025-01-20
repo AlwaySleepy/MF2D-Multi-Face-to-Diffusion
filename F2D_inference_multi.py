@@ -45,12 +45,12 @@ with torch.no_grad():
     msid=msid.to(device)
     msid.eval()
 
-    input_prompt = 'f and g are happy couple on the beach' # You must input "f l" to represent the subject S*
+    input_prompt = 'f l and g l are happy couple on the beach' # You must input "f l" to represent the subject S*
     guidance_scale = 10.0 # classifier-free guidance
     n_samples = 8 # num of images to generate
     img_path1 = 'data/input/0.jpg' # path to input image
-    img_path2 = 'data/input/4.jpg' 
-    output_dir = "data/f2d5"
+    img_path2 = 'data/input/3.jpg' 
+    output_dir = "data/f2d"
 
     identifier1='f'
     ids = pipe.tokenizer(
@@ -125,7 +125,3 @@ with torch.no_grad():
                 f"output_{instance_id}.png",
             )
         )
-    # image = np.concatenate([np.array(image[i]) for i in range(len(image))],1)
-    # image = Image.fromarray(image.astype(np.uint8))
-    # image
-    
